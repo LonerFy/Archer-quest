@@ -50,11 +50,13 @@ class PointerStick:
 
 class App:
     def __init__(self):
-        pygame.mixer.pre_init(22050, -16, 1, 512)
+        if not WEB:
+            pygame.mixer.pre_init(22050, -16, 1, 512)
         pygame.init()
         flags = 0 if WEB else pygame.SCALED | pygame.RESIZABLE
         self.screen = pygame.display.set_mode((W, H), flags)
         pygame.display.set_caption("Archer Quest")
+        self.splash("Chargement...")  # une image tout de suite, avant tout calcul
         self.clock = pygame.time.Clock()
         self.world = World()
         self.renderer = Renderer()
@@ -71,10 +73,20 @@ class App:
         self.running = True
         self.t = 0.0
 
+    def splash(self, message):
+        """Affiche un message immédiatement (démarrage, erreur)."""
+        self.screen.fill((8, 8, 14))
+        font = pygame.font.Font(None, 40)
+        img = font.render(message, True, (255, 215, 94))
+        self.screen.blit(img, img.get_rect(center=(W // 2, H // 2)))
+        pygame.display.flip()
+
     # ------------------------------------------------------------------ boucle
     async def run(self):
         while self.running:
             dt = min(MAX_DT, self.clock.tick(FPS) / 1000)
+            if not self.audio.ready:
+                self.audio.build_step()
             self.step(dt, pygame.event.get())
             pygame.display.flip()
             await asyncio.sleep(0)  # indispensable pour pygbag (navigateur)

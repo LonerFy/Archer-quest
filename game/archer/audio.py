@@ -32,18 +32,38 @@ def _wave(kind, phase):
 
 
 class Audio:
+    """Les sons sont construits un par un, au fil des images, pour ne jamais
+    bloquer le navigateur au démarrage (le WebAssembly est lent sur ce calcul)."""
+
     def __init__(self):
         self.muted = False
         self.sounds = {}
+        self.ready = False
+        self._fmt = None
+        self._pending = list(SPEC.items())
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init()
-            rate, size, channels = pygame.mixer.get_init()
-            for name, tones in SPEC.items():
-                self.sounds[name] = self._build(tones, rate, size, channels)
+            self._fmt = pygame.mixer.get_init()
         except Exception as exc:  # pas d'audio : le jeu reste jouable
             print("Audio désactivé :", exc)
-            self.sounds = {}
+            self._pending = []
+        if self._fmt is None:
+            self._pending = []
+            self.ready = True
+
+    def build_step(self):
+        """Construit au plus un son. À appeler une fois par image."""
+        if not self._pending:
+            self.ready = True
+            return False
+        name, tones = self._pending.pop()
+        try:
+            rate, size, channels = self._fmt
+            self.sounds[name] = self._build(tones, rate, size, channels)
+        except Exception as exc:
+            print("Son ignoré :", name, exc)
+        return True
 
     @staticmethod
     def _build(tones, rate, size, channels):
